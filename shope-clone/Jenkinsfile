@@ -1,0 +1,58 @@
+pipeline {
+    agent any
+
+    environment {
+        // Nama image Docker kamu
+        IMAGE_NAME = 'salsabilachandra/shope-clone'
+        // ID credential Docker Hub yang kamu simpan di Jenkins
+        REGISTRY_CREDENTIALS = 'dockerhub-credentials'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                echo '🔄 Checking out source code...'
+                checkout scm
+            }
+        }
+
+        stage('Build HTML Project') {
+            steps {
+                bat 'echo Building static Bootstrap project on Windows...'
+                bat 'dir'
+            }
+        }
+
+        stage('Build Docker Image') {
+            steps {
+                echo '🐳 Building Docker image...'
+                bat """
+                docker build -t ${env.IMAGE_NAME}:${env.BUILD_NUMBER} .
+                """
+            }
+        }
+
+        stage('Push Docker Image') {
+            steps {
+                echo '📤 Pushing image to Docker Hub...'
+                withCredentials([usernamePassword(credentialsId: env.REGISTRY_CREDENTIALS, usernameVariable: 'USER', passwordVariable: 'PASS')]) {
+                    bat """
+                    docker login -u %USER% -p %PASS%
+                    docker push ${env.IMAGE_NAME}:${env.BUILD_NUMBER}
+                    docker tag ${env.IMAGE_NAME}:${env.BUILD_NUMBER} ${env.IMAGE_NAME}:latest
+                    docker push ${env.IMAGE_NAME}:latest
+                    """
+                }
+            }
+        }
+    }
+
+    post {
+        success {
+            echo "✅ Build and push successful! Image: ${env.IMAGE_NAME}:${env.BUILD_NUMBER}"
+        }
+        failure {
+            echo "❌ Build or push failed."
+        }
+    }
+}
